@@ -9,16 +9,11 @@ public class Sprint()
 
 public record SprintStats(Sprint Sprint, decimal DevDaysPerSprint)
 {
-    public string Name => Sprint.Name;
-    public int Points => Sprint.Points;
-    public decimal DevDays => Sprint.DevDays;
     public decimal PointsPerDevDay => Sprint.Points / Sprint.DevDays;
     public decimal PotentialPoints => Math.Round(PointsPerDevDay * DevDaysPerSprint);
 }
 
-public record SprintPlan(DevPlan[] DevPlans) {
-    public static SprintPlan New(Team team) => new (team.Members.Select(x => new DevPlan(x.Name) { DevDays = 8}).ToArray()); 
-};
+public record SprintPlan(DevPlan[] DevPlans);
 
 public record DevPlan(string DevName) {
     public int DevDays { get; set; }
@@ -31,6 +26,10 @@ public class Team
     public List<TeamMember> Members { get; set; } = new ();
     
     public int SprintDevDays => SprintDays * Members.Count;
+
+    public SprintPlan NewPlan() => new (Members
+        .Select(x =>new DevPlan(x.Name) {DevDays = SprintDays})
+        .ToArray());
 }
 
 public class TeamMember

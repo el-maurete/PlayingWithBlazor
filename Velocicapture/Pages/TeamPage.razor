@@ -4,7 +4,15 @@
 <PageTitle>Team</PageTitle>
 
 <div>
-    Name: <input type="text" @bind="_team.Name" />
+    @if (_team.Name == null)
+    { 
+        <label>Create your Team:</label>
+    }
+    else
+    {
+        <label>Name:</label>
+    }
+    <input type="text" @bind="_team.Name" />
 </div>
 
 <hr/>

@@ -9,14 +9,14 @@
   <h1> Sprints' trend for @_team.Name</h1>
 
   <RadzenChart>
-    <RadzenValueAxis Min="_sprintStats.Min(x => x.Points) / 2" Max="_sprintStats.Max(x => x.PotentialPoints)" Step="25" />
-    <RadzenColumnSeries Data="@_sprintStats" CategoryProperty="Name" ValueProperty="Points" Title="Points"/>
-    <RadzenColumnSeries Data="@_sprintStats" CategoryProperty="Name" ValueProperty="PotentialPoints" Title="Potential Points">
+    <RadzenValueAxis Min="_min / 2" Max="_potentialMax" Step="20" />
+    <RadzenColumnSeries Data="@_sprintStats" CategoryProperty="Sprint.Name" ValueProperty="Sprint.Points" Title="Actual Points"/>
+    <RadzenColumnSeries Data="@_sprintStats" CategoryProperty="Sprint.Name" ValueProperty="PotentialPoints" Title="Potential Points">
       <TooltipTemplate Context="data">
         <div>
-          Dev days: <strong>@data.DevDays</strong>
+          Dev days: <strong>@data.Sprint.DevDays</strong>
           <br/>
-          Total points: <strong>@data.Points</strong>
+          Total points: <strong>@data.Sprint.Points</strong>
           <br/>
           Potential points: <strong>@data.PotentialPoints</strong>
         </div>
@@ -67,6 +67,7 @@
     private double _forecast;
     private double _min;
     private double _max;
+    private double _potentialMax;
 
     protected override void OnInitialized()
     {
@@ -85,11 +86,12 @@
         }
 
         _team = team;
-        _plan = SprintPlan.New(_team);
+        _plan = _team.NewPlan();
         _sprintStats = sprints.Select(s => new SprintStats(s, _team.SprintDevDays));
 
-        _min = (double)_sprintStats.DefaultIfEmpty().Min(x => x?.Points ?? 0);
-        _max = (double)_sprintStats.DefaultIfEmpty().Max(x => x?.Points ?? 0);
+        _min = (double)_sprintStats.DefaultIfEmpty().Min(x => x?.Sprint.Points ?? 0);
+        _max = (double)_sprintStats.DefaultIfEmpty().Max(x => x?.Sprint.Points ?? 0);
+        _potentialMax = (double)_sprintStats.DefaultIfEmpty().Max(x => x?.PotentialPoints ?? 0);
 
         _forecast = PredictPoints();
     }
