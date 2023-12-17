@@ -1,0 +1,18 @@
+﻿@page "/reset"
+@inject Storage Storage
+@inject NavigationManager NavigationManager
+
+<PageTitle>Reset all the data</PageTitle>
+
+<h3>You sure you want to reset?</h3>
+
+<RadzenButton Click="Reset">Go for it!</RadzenButton>
+
+@code {
+    private void Reset()
+    {
+        Storage.Store((Team)null!);
+        Storage.Store((List<Sprint>)null!);
+        NavigationManager.NavigateTo("/team");
+    }
+}

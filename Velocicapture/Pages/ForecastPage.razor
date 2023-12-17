@@ -1,0 +1,106 @@
+﻿@page "/"
+@inject Storage Storage
+@inject NavigationManager NavigationManager
+
+<PageTitle>Sprints Trend and Forecasting</PageTitle>
+
+@if (_team != null && _sprintStats != null && _sprintStats.Any())
+{
+  <h1> Sprints' trend for @_team.Name</h1>
+
+  <RadzenChart>
+    <RadzenValueAxis Min="_sprintStats.Min(x => x.Points) / 2" Max="_sprintStats.Max(x => x.PotentialPoints)" Step="25" />
+    <RadzenColumnSeries Data="@_sprintStats" CategoryProperty="Name" ValueProperty="Points" Title="Points"/>
+    <RadzenColumnSeries Data="@_sprintStats" CategoryProperty="Name" ValueProperty="PotentialPoints" Title="Potential Points">
+      <TooltipTemplate Context="data">
+        <div>
+          Dev days: <strong>@data.DevDays</strong>
+          <br/>
+          Total points: <strong>@data.Points</strong>
+          <br/>
+          Potential points: <strong>@data.PotentialPoints</strong>
+        </div>
+      </TooltipTemplate>
+    </RadzenColumnSeries>
+  </RadzenChart>
+
+  <hr />
+
+  <h2> Forecast for next sprint </h2>
+
+  <div>
+    <div class="forecaster">
+      <RadzenRadialGauge>
+          <RadzenRadialGaugeScale StartAngle="-150" EndAngle="150" Step="20" 
+            Min="@(_min - 20)"
+            Max="@(_max + 20)">
+              <RadzenRadialGaugeScalePointer Length="0.6"
+                Value=@(Math.Round(_plan.DevPlans.Sum(x => x.DevDays) * _forecast))>
+                  <Template Context="pointer"><h4>@pointer.Value</h4></Template>
+              </RadzenRadialGaugeScalePointer>
+              <RadzenRadialGaugeScaleRange From="@(_min - 20)" To="@(_min)" Fill="red" />
+              <RadzenRadialGaugeScaleRange From="@(_min)" To="@(_max)" Fill="yellow" />
+              <RadzenRadialGaugeScaleRange From="@(_max)" To="@(_max + 20)" Fill="green" />
+          </RadzenRadialGaugeScale>
+      </RadzenRadialGauge>
+    </div>
+    <div>
+      <strong>
+        <span>@_plan.DevPlans.Sum(x => x.DevDays)</span>
+        <label>Dev days</label>
+      </strong>    
+      <br />
+      @foreach (var devPlan in _plan.DevPlans) {
+          <div class="dev-row">
+              <input class="dev-days" type="text" @bind="devPlan.DevDays" @bind:event="oninput" />
+              <label>@devPlan.DevName</label>
+          </div>
+      }
+    </div>
+  </div>
+}
+
+@code {
+    private Team _team = null!;
+    private IEnumerable<SprintStats> _sprintStats = null!;
+    private SprintPlan _plan = null!;
+    private double _forecast;
+    private double _min;
+    private double _max;
+
+    protected override void OnInitialized()
+    {
+        var team = Storage.LoadTeam();
+        if (team == null)
+        {
+          NavigationManager.NavigateTo("/team");
+          return;
+        }
+        
+        var sprints = Storage.LoadSprints();
+        if (sprints == null || !sprints.Any())
+        {
+          NavigationManager.NavigateTo("/record");
+          return;
+        }
+
+        _team = team;
+        _plan = SprintPlan.New(_team);
+        _sprintStats = sprints.Select(s => new SprintStats(s, _team.SprintDevDays));
+
+        _min = (double)_sprintStats.DefaultIfEmpty().Min(x => x?.Points ?? 0);
+        _max = (double)_sprintStats.DefaultIfEmpty().Max(x => x?.Points ?? 0);
+
+        _forecast = PredictPoints();
+    }
+
+    private double PredictPoints()
+    {
+        var points = _sprintStats.Select(x => x.PointsPerDevDay).ToArray();
+        if (points.Length == 0)
+          return 0;
+        var weights = Enumerable.Range(1, points.Length).ToArray();
+        var weightedAverage = points.Zip(weights, (x, y) => x * y).Sum() / weights.Sum();
+        return (double)weightedAverage;
+    }
+}

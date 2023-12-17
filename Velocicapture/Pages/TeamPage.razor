@@ -1,0 +1,60 @@
+﻿@page "/team"
+@inject Storage Storage
+
+<PageTitle>Team</PageTitle>
+
+<div>
+    Name: <input type="text" @bind="_team.Name" />
+</div>
+
+<hr/>
+
+<div>
+    Sprint size (days): <input type="text" @bind="_team.SprintDays" />
+</div>
+
+<hr />
+
+<div>
+    Members: <br /> 
+        <RadzenDataGrid @ref="_membersGrid" Data="@_team.Members" TItem="TeamMember">
+        <Columns>
+            <RadzenDataGridColumn TItem="TeamMember" Property="Name" />
+            <RadzenDataGridColumn TItem="TeamMember" Context="member">
+                <Template Context="member">
+                    <RadzenButton Icon="delete" Size="ButtonSize.Small" Click="@(args => Delete(member))" @onclick:stopPropagation="true" />
+                </Template>
+            </RadzenDataGridColumn>
+        </Columns>
+    </RadzenDataGrid>
+
+    <input type="text" @bind="_newMemberName" />
+    <RadzenButton Click="AddTeamMember">Add member</RadzenButton>
+</div>
+
+@code {
+    private Team _team = new Team();
+    private string _newMemberName = "";
+    private RadzenDataGrid<TeamMember>? _membersGrid;
+
+    protected override void OnInitialized()
+    {
+        var team = Storage.LoadTeam();
+        if (team != null)
+            _team = team;
+    }
+
+    private async Task AddTeamMember()
+    {
+        _team.Members.Add(new TeamMember(_newMemberName));
+        Storage.Store(_team);
+        await _membersGrid!.Reload();
+    }
+
+    private async Task Delete(TeamMember member)
+    {
+        _team.Members.Remove(member);
+        Storage.Store(_team);
+        await _membersGrid!.Reload();
+    }
+}

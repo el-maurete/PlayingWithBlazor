@@ -1,0 +1,126 @@
+﻿@page "/record"
+@inject IJSRuntime JSRuntime
+@inject Storage Storage
+@inject DialogService DialogService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Sprint Record</PageTitle>
+
+<div>
+    Team Name: @_team?.Name
+</div>
+
+<hr/>
+
+<RadzenButton Click="ExportDataAsJson">Export as JSON</RadzenButton>
+<RadzenButton Click="ShowImportArea">Edit as JSON</RadzenButton>
+
+<div class="@_importAreaClass">
+    <hr/>
+    <RadzenTextArea @bind-Value="_importedJson" class="json-text-area"/>
+    <RadzenButton Click="ImportDataFromJson">Confirm</RadzenButton>
+    <hr/>
+</div>
+
+<hr/>
+
+<RadzenDataGrid @ref="_recordGrid" Data="@_sprints" TItem="Sprint" EditMode="DataGridEditMode.Single" RowUpdate="@OnRowUpdate">
+    <Columns>
+        <RadzenDataGridColumn TItem="Sprint" Property="Name" Title="Name">
+            <EditTemplate Context="sprint">
+                <RadzenTextBox @bind-Value="sprint.Name"></RadzenTextBox>
+            </EditTemplate>
+        </RadzenDataGridColumn>
+        
+        <RadzenDataGridColumn TItem="Sprint" Property="Points" Title="Points">
+            <EditTemplate Context="sprint">
+                 <RadzenNumeric @bind-Value="sprint.Points" />
+            </EditTemplate>
+        </RadzenDataGridColumn>
+
+        <RadzenDataGridColumn TItem="Sprint" Property="DevDays" Title="Dev Days">
+            <EditTemplate Context="sprint">
+                 <RadzenNumeric @bind-Value="sprint.DevDays" />
+            </EditTemplate>
+        </RadzenDataGridColumn>
+
+        <RadzenDataGridColumn TItem="Sprint" Width="150px">
+            <Template Context="sprint">
+                <RadzenButton Icon="edit" Click="@(async () => await _recordGrid.EditRow(sprint))" Style="margin-right: 5px;" />
+            </Template>
+            <EditTemplate Context="sprint">
+                <RadzenButton Icon="check" Click="@(() => _recordGrid.UpdateRow(sprint))" Style="margin-right: 5px;" />
+                <RadzenButton Icon="delete" Click="@(() => DeleteRow(sprint))" />
+            </EditTemplate>
+        </RadzenDataGridColumn>
+    </Columns>
+</RadzenDataGrid>
+
+<RadzenButton Click="AddSprint">Add Sprint Record</RadzenButton>
+
+<hr />        
+
+@code {
+    private RadzenDataGrid<Sprint> _recordGrid = null!;
+    private Team _team = new Team();
+    private List<Sprint> _sprints = new List<Sprint>();
+    private string _importAreaClass = "hidden";
+    private string _importedJson = "";
+
+    protected override void OnInitialized()
+    {
+        var team = Storage.LoadTeam();
+        if (team == null)
+        {
+          NavigationManager.NavigateTo("/team");
+          return;
+        }
+        _team = team;
+        _sprints = Storage.LoadSprints() ?? new List<Sprint>();
+    }
+
+    private async Task AddSprint()
+    {
+        var newSprint = new Sprint { Name = "Insert Name", Points = 0, DevDays = 0 };
+        _sprints.Add(newSprint);
+        await _recordGrid!.Reload();
+        await _recordGrid.EditRow(newSprint);
+    }
+
+    private async Task ExportDataAsJson()
+    {
+        var jsonData = System.Text.Json.JsonSerializer.Serialize(_sprints);
+        await JSRuntime.InvokeVoidAsync("downloadFile", "data.json", jsonData);
+    }
+
+    private void ShowImportArea()
+    {
+        _importedJson = System.Text.Json.JsonSerializer.Serialize(_sprints);
+        _importAreaClass = "";
+    }
+    
+    private void HideImportArea() => _importAreaClass = "hidden";
+
+    private async Task ImportDataFromJson()
+    {
+        var sprints = System.Text.Json.JsonSerializer.Deserialize<List<Sprint>>(_importedJson);
+        if (sprints != null)
+            _sprints = sprints;
+        Storage.Store(_sprints);
+        await _recordGrid!.Reload();
+        HideImportArea();
+    }
+
+    private async Task OnRowUpdate(Sprint sprint)
+    {
+        Storage.Store(_sprints);
+        await _recordGrid!.Reload();
+    }
+
+    private async Task DeleteRow(Sprint sprint)
+    {
+        _sprints.Remove(sprint);
+        Storage.Store(_sprints);
+        await _recordGrid!.Reload();
+    }
+}

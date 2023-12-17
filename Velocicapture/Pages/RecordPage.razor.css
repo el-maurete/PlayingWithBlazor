@@ -1,0 +1,18 @@
+.hidden {
+    display: none;
+}
+
+.json-text-area {
+    width: 100%;
+}
+
+.add-record-grid {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr; 
+}
+
+.add-record-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+}
