@@ -24,28 +24,24 @@
 
 <div class="mermaid" id="my-graph"></div>
 
-
 @code {
-    private string? _userInput = "A";
-    private string _currentState = "A";
-    private string _graph = "";
+    private string _graph = GenerateRandomGraph();
+    private string? _userInput;
+    private HubConnection? _hubConnection;
 
-    private bool CanSendMessage =>
-        hubConnection?.State == HubConnectionState.Connected && _userInput != null;
+    protected override async Task OnParametersSetAsync()
+        => await ChangeGraph();
+
+    private bool CanSendMessage
+        => _hubConnection?.State == HubConnectionState.Connected && _userInput != null;
 
     private async Task ChangeGraph()
-    {
-        _graph = GenerateRandomGraph();
-        await UpdateGraph(_graph);
-    }
+        => await UpdateGraph(_graph = GenerateRandomGraph(), _userInput ?? "A");
 
-    private async Task UpdateGraph(string graph)
-    {
-        graph += $"\n  style {_currentState} fill:#f9f";
-        await SetMermaid(graph);
-    }
+    private async Task UpdateGraph(string graph, string currentState)
+        => await SetMermaid(graph += $"\n  style {currentState} fill:#f9f");
 
-    private string GenerateRandomGraph()
+    private static string GenerateRandomGraph()
     {
         /* generate something random like this:
         graph TD
@@ -59,38 +55,29 @@
         return "graph TD\n  " + lines;
     }
 
-    private async Task SetMermaid(string graph) =>
-        await JSRuntime.InvokeVoidAsync("mermaidReload", "my-graph", graph);
+    public ValueTask DisposeAsync()
+        => _hubConnection?.DisposeAsync() ?? ValueTask.CompletedTask;
 
-    private HubConnection? hubConnection;
+    public async Task ReceiveMessage(string message)
+        => await UpdateGraph(_graph, message);
+
+    private Task Send()
+        => SendMessage(_userInput!);
+
+    public Task SendMessage(string message)
+        => _hubConnection?.SendAsync(nameof(SendMessage), message) ?? Task.CompletedTask;
+
+    private async Task SetMermaid(string graph)
+        => await JSRuntime.InvokeVoidAsync("mermaidReload", "my-graph", graph);
 
     protected override async Task OnInitializedAsync()
     {
-        hubConnection = new HubConnectionBuilder()
+        _hubConnection = new HubConnectionBuilder()
             .WithUrl("http://localhost:5111/chathub")
             .Build();
 
-        hubConnection.On<string>(nameof(ReceiveMessage), ReceiveMessage);
+        _hubConnection.On<string>(nameof(ReceiveMessage), ReceiveMessage);
 
-        await hubConnection.StartAsync();
+        await _hubConnection.StartAsync();
     }
-
-    public async ValueTask DisposeAsync()
-    {
-        if (hubConnection is not null)
-        {
-            await hubConnection.DisposeAsync();
-        }
-    }
-
-    public async Task ReceiveMessage(string message)
-    {
-        _currentState = message;
-        await UpdateGraph(_graph);
-    }
-
-    private Task Send() => SendMessage(_userInput!);
-
-    public Task SendMessage(string message) =>
-        hubConnection?.SendAsync(nameof(SendMessage), message) ?? Task.CompletedTask;
 }

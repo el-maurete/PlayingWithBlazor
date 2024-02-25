@@ -22,8 +22,8 @@ class StateRotation : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        var states = new string[] { "A", "B", "C", "D" };
         var x = 0;
+        var states = new string[] { "A", "B", "C", "D" };
         while (!stoppingToken.IsCancellationRequested)
         {
             await Task.Delay(TimeSpan.FromSeconds(10), stoppingToken);
