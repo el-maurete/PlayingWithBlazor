@@ -1,0 +1,96 @@
+﻿@page "/"
+
+@using Microsoft.AspNetCore.SignalR.Client
+@using Mermaid.Shared
+
+@inject IJSRuntime JSRuntime
+@inject NavigationManager Navigation
+
+@implements IAsyncDisposable
+@implements IClientHub
+@implements IServerHub
+
+<div>
+    <button @onclick="ChangeGraph">Change Graph</button>
+</div>
+
+<div class="form-group">
+    <label>
+        Current State:
+        <input @bind="_userInput" size="50" />
+    </label>
+</div>
+<button @onclick="Send" disabled="@(!CanSendMessage)">Update</button>
+
+<div class="mermaid" id="my-graph"></div>
+
+
+@code {
+    private string? _userInput = "A";
+    private string _currentState = "A";
+    private string _graph = "";
+
+    private bool CanSendMessage =>
+        hubConnection?.State == HubConnectionState.Connected && _userInput != null;
+
+    private async Task ChangeGraph()
+    {
+        _graph = GenerateRandomGraph();
+        await UpdateGraph(_graph);
+    }
+
+    private async Task UpdateGraph(string graph)
+    {
+        graph += $"\n  style {_currentState} fill:#f9f";
+        await SetMermaid(graph);
+    }
+
+    private string GenerateRandomGraph()
+    {
+        /* generate something random like this:
+        graph TD
+            A-->B
+            B-->C
+            B-->D
+            C-->D
+        */
+        var states = new [] { "A", "B", "C", "D" };
+        var lines = string.Join("\n  ", Enumerable.Repeat(4, 6).Select(x => $"{states[Random.Shared.Next(x)]}-->{states[Random.Shared.Next(x)]}"));
+        return "graph TD\n  " + lines;
+    }
+
+    private async Task SetMermaid(string graph) =>
+        await JSRuntime.InvokeVoidAsync("mermaidReload", "my-graph", graph);
+
+    private HubConnection? hubConnection;
+
+    protected override async Task OnInitializedAsync()
+    {
+        hubConnection = new HubConnectionBuilder()
+            .WithUrl("http://localhost:5111/chathub")
+            .Build();
+
+        hubConnection.On<string>(nameof(ReceiveMessage), ReceiveMessage);
+
+        await hubConnection.StartAsync();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (hubConnection is not null)
+        {
+            await hubConnection.DisposeAsync();
+        }
+    }
+
+    public async Task ReceiveMessage(string message)
+    {
+        _currentState = message;
+        await UpdateGraph(_graph);
+    }
+
+    private Task Send() => SendMessage(_userInput!);
+
+    public Task SendMessage(string message) =>
+        hubConnection?.SendAsync(nameof(SendMessage), message) ?? Task.CompletedTask;
+}
